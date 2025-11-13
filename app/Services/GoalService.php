@@ -1,0 +1,110 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Goal;
+use App\Models\User;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+
+class GoalService
+{
+    public function create(array $params, ?User $user = null): array
+    {
+        if (!$user) {
+            throw new \RuntimeException('User not found (goal.create)');
+        }
+
+        $goal = Goal::create([
+            'user_id'      => $user->id,
+            'title'        => Arr::get($params, 'title'),
+            'amount_total' => Arr::get($params, 'amount_total'),
+            'amount_saved' => 0,
+            'deadline'     => Arr::get($params, 'deadline'),
+            'priority'     => Arr::get($params, 'priority', 1),
+            'status'       => 'active',
+        ]);
+
+        return $this->transformGoal($goal);
+    }
+
+    public function get(array $params, ?User $user = null): array
+    {
+        $goalId = Arr::get($params, 'goal_id');
+        $goal = Goal::whereKey($goalId)
+            ->when($user, fn ($q) => $q->where('user_id', $user->id))
+            ->firstOrFail();
+
+        return $this->transformGoal($goal);
+    }
+
+    public function list(array $params, ?User $user): array
+    {
+        if (!$user) {
+            throw new \RuntimeException('User not found (goal.list)');
+        }
+
+        $goals = Goal::where('user_id', $user->id)
+            ->orderBy('created_at')
+            ->get()
+            ->map(function ($g) {
+                return [
+                    'id' => $g->id,
+                    'title' => $g->title,
+                    'amount_total' => $g->amount_total,
+                    'amount_saved' => $g->amount_saved ?? 0,
+                    'deadline' => $g->deadline,
+                ];
+            });
+
+        return [
+            'goals' => $goals,
+        ];
+    }
+
+    public function deposit(array $params, ?User $user = null): array
+    {
+        $goalId = Arr::get($params, 'goal_id');
+        $amount = (float) Arr::get($params, 'amount');
+        $method = Arr::get($params, 'method', 'manual');
+
+        $goal = Goal::whereKey($goalId)
+            ->when($user, fn ($q) => $q->where('user_id', $user->id))
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        DB::transaction(function () use ($goal, $amount, $method) {
+            $goal->payments()->create([
+                'amount' => $amount,
+                'method' => $method,
+            ]);
+
+            $goal->amount_saved = $goal->amount_saved + $amount;
+
+            if ($goal->amount_saved >= $goal->amount_total) {
+                $goal->status = 'completed';
+            }
+
+            $goal->save();
+        });
+
+        $goal->refresh();
+
+        return $this->transformGoal($goal);
+    }
+
+    protected function transformGoal(Goal $goal): array
+    {
+        return [
+            'id' => $goal->id,
+            'title' => $goal->title,
+            'amount_total' => (float) $goal->amount_total,
+            'amount_saved' => (float) $goal->amount_saved,
+            'deadline' => optional($goal->deadline)->toDateString(),
+            'priority' => $goal->priority,
+            'status' => $goal->status,
+            'progress' => $goal->progress,
+            'created_at' => $goal->created_at?->toDateTimeString(),
+        ];
+    }
+}

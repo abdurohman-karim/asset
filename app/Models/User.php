@@ -21,7 +21,9 @@ class User extends Authenticatable
         'email',
         'password',
         'password_expires_at',
-        'is_admin'
+        'is_admin',
+        'tg_user_id',
+        'settings'
     ];
 
     protected $hidden = [
@@ -35,6 +37,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'settings' => 'array',
         ];
     }
 
@@ -170,5 +173,25 @@ class User extends Authenticatable
             return $permission;
         }
         return Permission::where('name', $permission)->firstOrFail()->id;
+    }
+
+    public function goals()
+    {
+        return $this->hasMany(Goal::class, 'user_id');
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class, 'user_id');
+    }
+
+    public function budgets()
+    {
+        return $this->hasMany(Budget::class, 'user_id');
+    }
+
+    public function insights()
+    {
+        return $this->hasMany(AIInsight::class, 'user_id');
     }
 }

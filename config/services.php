@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4.1-mini'),
+    ],
+
+    'groq' => [
+        'key'   => env('GROQ_API_KEY'),
+        'model' => env('GROQ_MODEL'),
+        'base_uri' => env('GROQ_BASE_URI', 'https://api.groq.com/openai/v1'),
+    ],
+
+    'deepseek' => [
+        'key'   => env('DEEPSEEK_API_KEY'),
+        'model' => env('DEEPSEEK_MODEL', 'deepseek-chat'),
+        'base_uri' => env('DEEPSEEK_BASE_URI', 'https://api.deepseek.com'),
+    ],
 ];

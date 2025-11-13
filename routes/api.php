@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Rpc\MainController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -11,3 +12,5 @@ Route::post('/switch-theme',function (Request $request){
     $user = \App\Models\User::find($request->user_id);
     return $user->switchTheme();
 })->name('switchTheme');
+
+Route::post('/rpc', [MainController::class, 'index']);

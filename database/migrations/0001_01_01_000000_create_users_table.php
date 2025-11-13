@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('password');
             $table->string('phone')->nullable();
             $table->boolean('is_admin')->default(false);
+            $table->jsonb('settings')->nullable();
+            $table->string('tg_user_id')->unique()->nullable();
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
