@@ -158,35 +158,61 @@ class AIService
             . json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
+    protected function getActiveModel(): ?string
+    {
+        $models = config('services.models_llm');
+
+        foreach ($models as $model) {
+            $name = $model['name'];
+
+            $used  = Cache::get("llm_used_{$name}", 0);
+            $fail  = Cache::get("llm_fail_{$name}", 0);
+            $limit = $model['limit'];
+
+            if ($fail >= 3) {
+                continue;
+            }
+
+            if ($used >= $limit) {
+                continue;
+            }
+
+            return $name;
+        }
+
+        return null;
+    }
+
+
     protected function callLLM(string $prompt): array
     {
-        $result = $this->callOpenAI($prompt);
-        if (!$this->isAiError($result)) {
-            return $result;
-        }
+        while ($model = $this->getActiveModel()) {
 
-        $result = $this->callGroq($prompt);
-        if (!$this->isAiError($result)) {
-            return $result;
-        }
+            $method = "call" . ucfirst($model);
 
-        $result = $this->callDeepSeek($prompt);
-        if (!$this->isAiError($result)) {
-            return $result;
-        }
+            try {
+                $result = $this->$method($prompt);
 
-        $result = $this->callOpenRouter($prompt);
-        if(!$this->isAiError($result)) {
-            return $result;
+                if (!$this->isAiError($result)) {
+                    Cache::increment("llm_used_{$model}");
+                    return $result;
+                }
+
+                Cache::increment("llm_fail_{$model}");
+
+            } catch (\Throwable $e) {
+                Cache::increment("llm_fail_{$model}");
+            }
         }
 
         return [
             'summary' => "Сегодня совет недоступен — превышен лимит AI.",
-            'recommendation' => "Не переживай, продолжай придерживаться бюджета — завтра дам новый совет 💙",
+            'recommendation' => "Не волнуйся 😊 завтра я смогу дать новый совет!",
             'numbers' => ['score' => 0.0],
             'provider' => 'fallback'
         ];
     }
+
 
     protected function isAiError(array $result): bool
     {

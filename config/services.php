@@ -56,5 +56,24 @@ return [
         'url' => env('OPENROUTER_URL'),
         'model' => env('OPENROUTER_MODEL'),
         'key' => env('OPENROUTER_API_KEY'),
-    ]
+    ],
+
+    'models_llm' => [
+        [
+            'name'  => 'openai',
+            'limit' => 20,
+        ],
+        [
+            'name'  => 'groq',
+            'limit' => 20,
+        ],
+        [
+            'name'  => 'deepseek',
+            'limit' => 0,
+        ],
+        [
+            'name'  => 'openrouter',
+            'limit' => 20,
+        ],
+    ],
 ];
