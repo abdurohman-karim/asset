@@ -24,11 +24,10 @@ class MainController extends Controller
         AIService $aiService,
     ) {
         $jsonRpcVersion = $request->input('jsonrpc');
-        $id     = $request->input('id');
+        $id = $request->input('id');
         $method = $request->input('method');
         $params = $request->input('params', []);
 
-        // health check
         if (!$jsonRpcVersion && !$method) {
             return response()->json([
                 'jsonrpc' => '2.0',
@@ -40,62 +39,56 @@ class MainController extends Controller
             ]);
         }
 
-        // invalid RPC
         if ($jsonRpcVersion !== '2.0' || !$method) {
             return $this->error(-32600, 'Invalid Request', $id, Response::HTTP_BAD_REQUEST);
         }
 
-        // 🔥 Resolve user (главная часть!)
         $user = $userService->resolveUser($params, $request->user());
 
         try {
             $result = match ($method) {
 
-                // USER
                 'user.register' => $userService->register($params),
 
-                // GOALS
-                'goal.create'  => $goalService->create($params, $user),
-                'goal.get'     => $goalService->get($params, $user),
-                'goal.list'    => $goalService->list($params, $user),
+                'goal.create' => $goalService->create($params, $user),
+                'goal.get' => $goalService->get($params, $user),
+                'goal.list' => $goalService->list($params, $user),
                 'goal.deposit' => $goalService->deposit($params, $user),
+                'goal.setPrimary' => $goalService->setPrimary($params, $user),
+                'goal.priority.up' => $goalService->priorityUp($params, $user),
+                'goal.priority.down' => $goalService->priorityDown($params, $user),
+                'goal.close' => $goalService->close($params, $user),
+                'goal.reopen' => $goalService->reopen($params, $user),
 
-                // SMART SAVE
                 'smart.save.run' => $smartSaveService->run($params, $user),
 
-                // BUDGET
                 'budget.getMonth' => $budgetService->getMonth($params, $user),
                 'budget.recalculate' => $budgetService->recalculate($params, $user),
 
-                // TRANSACTIONS
                 'transaction.import' => $transactionService->import($params, $user),
                 'transaction.getDaily' => $transactionService->getDaily($params, $user),
 
-                // AI
-                'ai.insight.daily'         => $aiService->daily($params, $user),
-                'ai.goal.analysis'         => $aiService->goalAnalysis($params, $user),
-                'ai.transaction.analysis'   => $aiService->transactionAnalysis($params, $user),
+                'ai.insight.daily' => $aiService->daily($params, $user),
+                'ai.goal.analysis' => $aiService->goalAnalysis($params, $user),
+                'ai.transaction.analysis' => $aiService->transactionAnalysis($params, $user),
 
-                // default
                 default => $this->error(-32601, 'Method not found', $id)
             };
 
             return response()->json([
                 'jsonrpc' => '2.0',
-                'result'  => $result,
-                'id'      => $id,
+                'result' => $result,
+                'id' => $id,
             ]);
 
         } catch (\Throwable $e) {
-
-            // detailed debug output
             return response()->json([
                 'jsonrpc' => '2.0',
                 'error' => [
-                    'code'    => -32603,
+                    'code' => -32603,
                     'message' => $e->getMessage(),
-                    'file'    => $e->getFile(),
-                    'line'    => $e->getLine(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
                 ],
                 'id' => $id,
             ], 500);
@@ -107,7 +100,7 @@ class MainController extends Controller
         return response()->json([
             'jsonrpc' => '2.0',
             'error' => [
-                'code'    => $code,
+                'code' => $code,
                 'message' => $message,
             ],
             'id' => $id,

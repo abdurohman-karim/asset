@@ -14,6 +14,7 @@ class Goal extends Model
         'deadline',
         'priority',
         'status',
+        'is_primary'
     ];
 
     protected $casts = [

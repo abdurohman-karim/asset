@@ -51,4 +51,10 @@ return [
         'model' => env('DEEPSEEK_MODEL', 'deepseek-chat'),
         'base_uri' => env('DEEPSEEK_BASE_URI', 'https://api.deepseek.com'),
     ],
+
+    'openrouter' => [
+        'url' => env('OPENROUTER_URL'),
+        'model' => env('OPENROUTER_MODEL'),
+        'key' => env('OPENROUTER_API_KEY'),
+    ]
 ];

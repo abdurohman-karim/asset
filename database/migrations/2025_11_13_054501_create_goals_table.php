@@ -20,6 +20,7 @@ return new class extends Migration
             $table->date('deadline')->nullable();
             $table->tinyInteger('priority')->default(1);
             $table->string('status')->default('active'); // active | completed | cancelled
+            $table->boolean('is_primary')->default(false);
             $table->timestamps();
         });
     }
