@@ -73,12 +73,12 @@ class GoalService
         $amount = (float) Arr::get($params, 'amount');
         $method = Arr::get($params, 'method', 'manual');
 
-        $goal = Goal::whereKey($goalId)
-            ->when($user, fn ($q) => $q->where('user_id', $user->id))
-            ->lockForUpdate()
-            ->firstOrFail();
+        $goal = DB::transaction(function () use ($goalId, $user, $amount, $method) {
+            $goal = Goal::whereKey($goalId)
+                ->when($user, fn ($q) => $q->where('user_id', $user->id))
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        DB::transaction(function () use ($goal, $amount, $method) {
             $goal->payments()->create([
                 'amount' => $amount,
                 'method' => $method,
@@ -91,9 +91,9 @@ class GoalService
             }
 
             $goal->save();
-        });
 
-        $goal->refresh();
+            return $goal->fresh();
+        });
 
         return $this->serializeGoal($goal);
     }

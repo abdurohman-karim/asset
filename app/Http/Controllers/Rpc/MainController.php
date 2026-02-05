@@ -82,14 +82,19 @@ class MainController extends Controller
             ]);
 
         } catch (\Throwable $e) {
+            $error = [
+                'code' => -32603,
+                'message' => $e->getMessage(),
+            ];
+
+            if (config('app.debug')) {
+                $error['file'] = $e->getFile();
+                $error['line'] = $e->getLine();
+            }
+
             return response()->json([
                 'jsonrpc' => '2.0',
-                'error' => [
-                    'code' => -32603,
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ],
+                'error' => $error,
                 'id' => $id,
             ], 500);
         }

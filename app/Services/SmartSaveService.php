@@ -87,6 +87,10 @@ class SmartSaveService
 
         // 6. Записываем отложение
         DB::transaction(function () use ($goal, $safeSaveAmount) {
+            $goal = Goal::whereKey($goal->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             $goal->payments()->create([
                 'amount' => $safeSaveAmount,
                 'method' => 'smart_save',

@@ -263,7 +263,7 @@ class AIService
             }
 
             $content = $response->json('choices.0.message.content');
-            return json_decode($content, true);
+            return $this->decodeAiJson($content, 'openai');
 
         } catch (\Throwable $e) {
             return ['error' => 'openai_exception', 'details' => $e->getMessage()];
@@ -383,7 +383,7 @@ class AIService
             }
 
             $content = $response->json('choices.0.message.content');
-            return json_decode($content, true);
+            return $this->decodeAiJson($content, 'deepseek');
 
         } catch (\Throwable $e) {
             return ['error' => 'deepseek_exception'];
@@ -428,10 +428,25 @@ class AIService
             }
 
             $content = $response->json('choices.0.message.content');
-            return json_decode($content, true);
+            return $this->decodeAiJson($content, 'openrouter');
 
         } catch (\Throwable $e) {
             return ['error' => 'openrouter_exception'];
         }
+    }
+
+    protected function decodeAiJson($content, string $provider): array
+    {
+        if (!is_string($content) || trim($content) === '') {
+            return ['error' => "{$provider}_empty_content"];
+        }
+
+        $decoded = json_decode($content, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        return ['error' => "{$provider}_json_decode_error", 'raw' => $content];
     }
 }
