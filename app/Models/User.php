@@ -23,6 +23,7 @@ class User extends Authenticatable
         'password_expires_at',
         'is_admin',
         'tg_user_id',
+        'language',
         'settings'
     ];
 

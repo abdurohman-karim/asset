@@ -83,6 +83,54 @@ class RegisterController extends Controller
         return response()->json([
             'status' => 'ok',
             'registered' => (bool) ($user && $user->phone),
+            'language' => $user?->language,
+        ]);
+    }
+
+    public function setLanguage(Request $request)
+    {
+        $tgId = $request->input('tg_user_id');
+        $language = strtolower((string) $request->input('language'));
+
+        if (!$tgId || !$language) {
+            return $this->error('invalid_request', 'Неверные данные запроса');
+        }
+
+        if (!in_array($language, ['ru', 'uz', 'en'], true)) {
+            return $this->error('invalid_language', 'Неподдерживаемый язык');
+        }
+
+        try {
+            $user = DB::transaction(function () use ($tgId, $language) {
+                $user = User::where('tg_user_id', $tgId)->lockForUpdate()->first();
+
+                if (!$user) {
+                    $user = User::create([
+                        'name' => 'Telegram User',
+                        'email' => "tg_{$tgId}@local",
+                        'password' => Hash::make(Str::random(16)),
+                        'tg_user_id' => $tgId,
+                        'settings' => [],
+                    ]);
+                }
+
+                $user->language = $language;
+                $user->save();
+
+                return $user->fresh();
+            });
+        } catch (\Throwable $e) {
+            Log::error('Telegram set language error', [
+                'tg_user_id' => $tgId,
+                'language' => $language,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->error('server_error', 'Не удалось сохранить язык', 500);
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'language' => $user->language,
         ]);
     }
 

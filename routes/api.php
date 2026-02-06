@@ -16,5 +16,6 @@ Route::post('/switch-theme',function (Request $request){
 
 Route::post('/telegram/register', [TelegramRegisterController::class, 'register']);
 Route::post('/telegram/status', [TelegramRegisterController::class, 'status']);
+Route::post('/telegram/set-language', [TelegramRegisterController::class, 'setLanguage']);
 
 Route::post('/rpc', [MainController::class, 'index']);

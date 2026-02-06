@@ -10,6 +10,7 @@ use App\Services\BudgetService;
 use App\Services\TransactionService;
 use App\Services\AIService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class MainController extends Controller
@@ -71,9 +72,22 @@ class MainController extends Controller
                 'ai.insight.daily' => $aiService->daily($params, $user),
                 'ai.goal.analysis' => $aiService->goalAnalysis($params, $user),
                 'ai.transaction.analysis' => $aiService->transactionAnalysis($params, $user),
+                'ai.weekly_review' => $aiService->weeklyReview($params, $user),
+                'ai.risk_detection' => $aiService->riskDetection($params, $user),
+                'ai.savings_projection' => $aiService->savingsProjection($params, $user),
+                'ai.predictive_balance' => $aiService->predictiveBalance($params, $user),
+                'ai.behavioral_profile' => $aiService->behavioralProfile($params, $user),
 
                 default => $this->error(-32601, 'Method not found', $id)
             };
+
+            if (str_starts_with($method, 'ai.')) {
+                Log::info('AI RPC response', [
+                    'method' => $method,
+                    'user_id' => $user?->id,
+                    'result' => $result,
+                ]);
+            }
 
             return response()->json([
                 'jsonrpc' => '2.0',
