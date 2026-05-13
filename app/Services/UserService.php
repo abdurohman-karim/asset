@@ -44,14 +44,23 @@ class UserService
             return $authUser;
         }
 
-        if ($tgId = Arr::get($params, 'tg_user_id')) {
-            return User::where('tg_user_id', $tgId)->first();
-        }
-
-        if ($userId = Arr::get($params, 'user_id')) {
-            return User::find($userId);
-        }
-
         return null;
+    }
+
+    public function resolveTelegramUser(array $params): ?User
+    {
+        $tgId = Arr::get($params, 'tg_user_id');
+
+        if (!is_string($tgId) && !is_int($tgId)) {
+            return null;
+        }
+
+        $tgId = (string) $tgId;
+
+        if (!preg_match('/^\d+$/', $tgId)) {
+            return null;
+        }
+
+        return User::where('tg_user_id', $tgId)->first();
     }
 }

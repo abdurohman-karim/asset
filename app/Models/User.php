@@ -51,9 +51,14 @@ class User extends Authenticatable
 
     public function switchTheme()
     {
-        $this->theme = $this->theme == 'light' ? 'dark':'light';
+        $settings = $this->settings ?? [];
+        $currentTheme = $settings['theme'] ?? 'light';
+
+        $settings['theme'] = $currentTheme === 'light' ? 'dark' : 'light';
+        $this->settings = $settings;
         $this->save();
-        return $this->theme;
+
+        return $settings['theme'];
     }
     public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
@@ -120,6 +125,23 @@ class User extends Authenticatable
         Cache::forget("user_roles_{$this->id}");
         Cache::forget("user_permissions_{$this->id}");
     }
+
+    public function syncRoles(array $roles): void
+    {
+        $roleIds = collect($roles)->flatten()->map(function ($role) {
+            return $this->getRoleId($role);
+        })->all();
+
+        $this->roles()->sync($roleIds);
+        $this->clearPermissionsCache();
+    }
+
+    public function detachAllRoles(): void
+    {
+        $this->roles()->detach();
+        $this->clearPermissionsCache();
+    }
+
     public function assignRoles(...$roles)
     {
         $roles = collect($roles)->flatten()->map(function ($role) {

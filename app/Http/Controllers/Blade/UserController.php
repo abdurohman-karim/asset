@@ -50,9 +50,7 @@ class UserController extends Controller
 
         if (auth()->user()->hasPermission('Установить роль для пользователя') && $request->has('roles'))
         {
-            foreach ($request->roles as $role) {
-                $user->assignRole($role);
-            }
+            $user->syncRoles($request->roles);
         }
         return redirect()->route('users.index')->with('success',"Создан новый пользователь с именем $user->name!");
     }
@@ -96,9 +94,9 @@ class UserController extends Controller
 
         if (auth()->user()->hasPermission("Установить роль для пользователя")) {
             if ($request->has('roles')) {
-                $user->roles()->sync($request->roles);
+                $user->syncRoles($request->roles);
             } else {
-                $user->roles()->detach();
+                $user->detachAllRoles();
             }
         }
 

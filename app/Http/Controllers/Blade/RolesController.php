@@ -73,10 +73,10 @@ class RolesController extends Controller
 
         if ($role->isDirty()) $role->save();
         if ($request->has('permissions')) {
-            $role->permissions()->sync($request->permissions);
+            $role->syncPermissions($request->permissions);
         }
         else
-            $role->permissions()->detach();
+            $role->detachAllPermissions();
 
         return redirect()->route('roles.index')->with('success', 'Роль успешно обновлена');
     }
@@ -87,7 +87,7 @@ class RolesController extends Controller
         Check::permission('Удаление роли');
         if ($role->name === 'Super Admin')
             return redirect()->back()->with('error', 'Роль администратора не может быть удалена');
-        $role->permissions()->detach();
+        $role->detachAllPermissions();
         $role->delete();
         return redirect()->back()->with('success', 'Роль успешно удалена');
     }

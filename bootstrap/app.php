@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\AuthenticateRpcRequest;
+use App\Http\Middleware\VerifyTelegramBotSecret;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,6 +19,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => CheckPermission::class,
             'can' => \Illuminate\Auth\Middleware\Authorize::class,
+            'telegram.secret' => VerifyTelegramBotSecret::class,
+            'rpc.auth' => AuthenticateRpcRequest::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -9,13 +9,18 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::post('/switch-theme',function (Request $request){
-    $user = \App\Models\User::find($request->user_id);
-    return $user->switchTheme();
-})->name('switchTheme');
+Route::middleware('telegram.secret')->group(function () {
+    Route::post('/telegram/register', [TelegramRegisterController::class, 'register']);
+    Route::post('/telegram/status', [TelegramRegisterController::class, 'status']);
+    Route::post('/telegram/set-language', [TelegramRegisterController::class, 'setLanguage']);
+});
 
-Route::post('/telegram/register', [TelegramRegisterController::class, 'register']);
-Route::post('/telegram/status', [TelegramRegisterController::class, 'status']);
-Route::post('/telegram/set-language', [TelegramRegisterController::class, 'setLanguage']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/switch-theme', function (Request $request) {
+        return $request->user()->switchTheme();
+    })->name('switchTheme');
+});
 
-Route::post('/rpc', [MainController::class, 'index']);
+Route::middleware('rpc.auth')->group(function () {
+    Route::post('/rpc', [MainController::class, 'index']);
+});

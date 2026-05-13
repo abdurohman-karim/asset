@@ -56,8 +56,14 @@ class BudgetService
 
         $expenses = abs($expenses);
 
-        $days = $start->daysInMonth;
-        $recommendedDailyLimit = $days > 0 ? round($expenses / max(1, $start->day), 2) : 0;
+        $isCurrentMonth = $month === Carbon::today()->format('Y-m');
+        $daysInPeriod = $isCurrentMonth
+            ? min(Carbon::today()->day, $start->daysInMonth)
+            : $start->daysInMonth;
+
+        // Keep the existing API contract: recommended_daily_limit reflects average daily
+        // spending for the selected month so far, or the full month for past periods.
+        $recommendedDailyLimit = $daysInPeriod > 0 ? round($expenses / $daysInPeriod, 2) : 0;
 
         $budget = Budget::updateOrCreate(
             ['user_id' => $user->id, 'month' => $month],

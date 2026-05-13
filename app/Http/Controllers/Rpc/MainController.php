@@ -44,12 +44,22 @@ class MainController extends Controller
             return $this->error(-32600, 'Invalid Request', $id, Response::HTTP_BAD_REQUEST);
         }
 
-        $user = $userService->resolveUser($params, $request->user());
+        $user = $request->user();
+        $telegramRequest = (bool) $request->attributes->get('telegram_secret_verified');
+
+        if (!$user && $telegramRequest) {
+            $user = $userService->resolveTelegramUser($params);
+        }
+
+        if (!$user && !($telegramRequest && $method === 'user.register')) {
+            return $this->error(-32001, 'Unauthenticated', $id, Response::HTTP_UNAUTHORIZED);
+        }
 
         try {
             $result = match ($method) {
-
-                'user.register' => $userService->register($params),
+                'user.register' => $telegramRequest
+                    ? $userService->register($params)
+                    : $this->error(-32001, 'Unauthenticated', $id, Response::HTTP_UNAUTHORIZED),
 
                 'goal.create' => $goalService->create($params, $user),
                 'goal.get' => $goalService->get($params, $user),

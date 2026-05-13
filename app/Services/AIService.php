@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Log;
 
 class AIService
 {
+    protected int $providerCounterTtlSeconds = 3600;
+
     public function daily(array $params, ?User $user = null): array
     {
         if (!$user) {
@@ -70,22 +72,17 @@ class AIService
 
         $cacheKey = "goal_analysis_{$user->id}_{$goal->id}_" . Carbon::today()->toDateString();
 
-        if (Cache::has($cacheKey)) {
-            return $this->fallbackResponse($this->resolveLanguage($user));
-        }
-
-        Cache::put($cacheKey, true, now()->endOfDay());
-
-        $context = $this->buildContextPackage($user, $goal);
-
         $language = $this->resolveLanguage($user);
-        $prompt = $this->buildPrompt('goal_analysis', $user, $context, [
-            'Assess goal progress vs target and deadline.',
-            'Explain how current spending patterns affect the goal.',
-            'Give 1–2 practical next steps to stay on track.',
-        ]);
+        return Cache::remember($cacheKey, now()->endOfDay(), function () use ($user, $goal, $language) {
+            $context = $this->buildContextPackage($user, $goal);
+            $prompt = $this->buildPrompt('goal_analysis', $user, $context, [
+                'Assess goal progress vs target and deadline.',
+                'Explain how current spending patterns affect the goal.',
+                'Give 1–2 practical next steps to stay on track.',
+            ]);
 
-        return $this->callLLM($this->buildSystemPrompt($language), $prompt, $language);
+            return $this->callLLM($this->buildSystemPrompt($language), $prompt, $language);
+        });
     }
 
     public function transactionAnalysis(array $params, ?User $user = null): array
@@ -610,18 +607,24 @@ class AIService
                 $result = $this->$method($systemPrompt, $userPrompt);
 
                 if (!$this->isAiError($result)) {
-                    Cache::increment("llm_used_{$model}");
+                    $this->incrementProviderCounter("llm_used_{$model}");
                     return $this->normalizeAiResponse($result, $language);
                 }
 
-                Cache::increment("llm_fail_{$model}");
+                $this->incrementProviderCounter("llm_fail_{$model}");
 
             } catch (\Throwable $e) {
-                Cache::increment("llm_fail_{$model}");
+                $this->incrementProviderCounter("llm_fail_{$model}");
             }
         }
 
         return $this->fallbackResponse($language);
+    }
+
+    protected function incrementProviderCounter(string $key): void
+    {
+        $current = (int) Cache::get($key, 0);
+        Cache::put($key, $current + 1, now()->addSeconds($this->providerCounterTtlSeconds));
     }
 
     protected function isAiError(array $result): bool

@@ -9,18 +9,26 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 
 class RegisterController extends Controller
 {
     public function register(Request $request)
     {
-        $tgId = $request->input('tg_user_id');
-        $phoneRaw = $request->input('phone');
-        $name = $request->input('name', 'Telegram User');
+        $validator = Validator::make($request->all(), [
+            'tg_user_id' => $this->telegramIdRules(),
+            'phone' => ['required', 'string', 'max:32'],
+            'name' => ['nullable', 'string', 'max:255'],
+        ]);
 
-        if (!$tgId || !$phoneRaw) {
-            return $this->error('invalid_request', 'Неверные данные запроса');
+        if ($validator->fails()) {
+            return $this->error('invalid_request', $validator->errors()->first());
         }
+
+        $data = $validator->validated();
+        $tgId = $data['tg_user_id'];
+        $phoneRaw = $data['phone'];
+        $name = $data['name'] ?? 'Telegram User';
 
         $phone = $this->normalizePhone($phoneRaw);
         if (!$phone) {
@@ -73,11 +81,15 @@ class RegisterController extends Controller
 
     public function status(Request $request)
     {
-        $tgId = $request->input('tg_user_id');
-        if (!$tgId) {
-            return $this->error('invalid_request', 'Неверные данные запроса');
+        $validator = Validator::make($request->all(), [
+            'tg_user_id' => $this->telegramIdRules(),
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error('invalid_request', $validator->errors()->first());
         }
 
+        $tgId = $validator->validated()['tg_user_id'];
         $user = User::where('tg_user_id', $tgId)->first();
 
         return response()->json([
@@ -89,16 +101,18 @@ class RegisterController extends Controller
 
     public function setLanguage(Request $request)
     {
-        $tgId = $request->input('tg_user_id');
-        $language = strtolower((string) $request->input('language'));
+        $validator = Validator::make($request->all(), [
+            'tg_user_id' => $this->telegramIdRules(),
+            'language' => ['required', 'string', 'in:ru,uz,en'],
+        ]);
 
-        if (!$tgId || !$language) {
-            return $this->error('invalid_request', 'Неверные данные запроса');
+        if ($validator->fails()) {
+            return $this->error('invalid_request', $validator->errors()->first());
         }
 
-        if (!in_array($language, ['ru', 'uz', 'en'], true)) {
-            return $this->error('invalid_language', 'Неподдерживаемый язык');
-        }
+        $data = $validator->validated();
+        $tgId = $data['tg_user_id'];
+        $language = strtolower($data['language']);
 
         try {
             $user = DB::transaction(function () use ($tgId, $language) {
@@ -157,6 +171,25 @@ class RegisterController extends Controller
         }
 
         return '+' . $digits;
+    }
+
+    private function telegramIdRules(): array
+    {
+        return [
+            'required',
+            function (string $attribute, mixed $value, \Closure $fail) {
+                if (!is_scalar($value)) {
+                    $fail('The '.$attribute.' field must be a string.');
+                    return;
+                }
+
+                $stringValue = (string) $value;
+
+                if ($stringValue === '' || strlen($stringValue) > 64 || !preg_match('/^\d+$/', $stringValue)) {
+                    $fail('The '.$attribute.' field format is invalid.');
+                }
+            },
+        ];
     }
 
     private function error(string $code, string $message, int $status = 422)
