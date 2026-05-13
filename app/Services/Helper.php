@@ -44,8 +44,7 @@ class Helper
 
     static function forbiddenAccess():void
     {
-        header('HTTP/1.1 403 Forbidden');
-        die();
+        abort(403);
     }
 
     static function checkPermission($permission):void

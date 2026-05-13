@@ -5,6 +5,9 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -60,12 +63,13 @@ class User extends Authenticatable
 
         return $settings['theme'];
     }
-    public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+
+    public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);
     }
 
-    public function permissions()
+    public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class);
     }
@@ -198,23 +202,33 @@ class User extends Authenticatable
         return Permission::where('name', $permission)->firstOrFail()->id;
     }
 
-    public function goals()
+    public function goals(): HasMany
     {
         return $this->hasMany(Goal::class, 'user_id');
     }
 
-    public function transactions()
+    public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class, 'user_id');
     }
 
-    public function budgets()
+    public function budgets(): HasMany
     {
         return $this->hasMany(Budget::class, 'user_id');
     }
 
-    public function insights()
+    public function aiInsights(): HasMany
     {
-        return $this->hasMany(AIInsight::class, 'user_id');
+        return $this->hasMany(AiInsight::class, 'user_id');
+    }
+
+    public function insights(): HasMany
+    {
+        return $this->aiInsights();
+    }
+
+    public function goalPayments(): HasManyThrough
+    {
+        return $this->hasManyThrough(GoalPayment::class, Goal::class, 'user_id', 'goal_id');
     }
 }
