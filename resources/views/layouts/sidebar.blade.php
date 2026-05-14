@@ -2,6 +2,14 @@
     <div data-simplebar class="h-100">
         <div id="sidebar-menu">
             <ul class="metismenu list-unstyled" id="side-menu">
+                @if(auth()->check() && auth()->user()->hasRole('Super Admin'))
+                    <li class="{{ Request::is('artisan-console*') ? 'mm-active' : '' }}">
+                        <a href="{{ route('artisan-console.index') }}" class="waves-effect">
+                            <i class="mdi mdi-console-line text-danger"></i>
+                            <span>Artisan Console</span>
+                        </a>
+                    </li>
+                @endif
                 <li class="menu-title font-size-10"><i>Управление</i></li>
                 <li>
                     <a href="{{ route('home') }}" class="waves-effect">
