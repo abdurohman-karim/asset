@@ -11,6 +11,7 @@ class Goal extends Model
         'title',
         'amount_total',
         'amount_saved',
+        'currency_code',
         'deadline',
         'priority',
         'status',

@@ -9,6 +9,7 @@ class Budget extends Model
     protected $fillable = [
         'user_id',
         'month',
+        'currency_code',
         'income',
         'expenses',
         'recommended_daily_limit',

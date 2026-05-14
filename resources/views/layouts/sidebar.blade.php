@@ -40,6 +40,14 @@
                         </ul>
                     </li>
                 @endcanany
+                @canany(['currencies.index', 'currencies.create', 'currencies.update', 'currencies.delete', 'currencies.set-default'])
+                    <li class="{{ Request::is('currencies*') ? 'mm-active' : '' }}">
+                        <a href="{{ route('currencies.index') }}" class="waves-effect">
+                            <i class="fas fa-coins"></i>
+                            <span>Валюты</span>
+                        </a>
+                    </li>
+                @endcanany
             </ul>
         </div>
     </div>

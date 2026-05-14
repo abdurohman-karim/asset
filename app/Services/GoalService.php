@@ -9,12 +9,18 @@ use Illuminate\Support\Facades\DB;
 
 class GoalService
 {
+    public function __construct(
+        protected CurrencyService $currencies,
+    ) {
+    }
+
     public function create(array $params, ?User $user = null): array
     {
         if (!$user) {
             throw new \RuntimeException('User not found (goal.create)');
         }
 
+        $currency = $this->currencies->preferredCurrency($user);
         $maxPriority = Goal::where('user_id', $user->id)->max('priority');
         $priority = $maxPriority ? $maxPriority + 1 : 1;
 
@@ -23,6 +29,7 @@ class GoalService
             'title' => Arr::get($params, 'title'),
             'amount_total' => Arr::get($params, 'amount_total'),
             'amount_saved' => 0,
+            'currency_code' => $currency['code'],
             'deadline' => Arr::get($params, 'deadline'),
             'priority' => $priority,
             'status' => 'active',
@@ -50,20 +57,10 @@ class GoalService
         $goals = Goal::where('user_id', $user->id)
             ->orderBy('priority', 'asc')
             ->get()
-            ->map(function ($g) {
-                return [
-                    'id' => $g->id,
-                    'title' => $g->title,
-                    'is_primary' => $g->is_primary,
-                    'priority' => $g->priority,
-                    'amount_total' => $g->amount_total,
-                    'amount_saved' => $g->amount_saved ?? 0,
-                    'deadline' => $g->deadline,
-                ];
-            });
+            ->map(fn (Goal $goal) => $this->serializeGoal($goal));
 
         return [
-            'goals' => $goals,
+            'goals' => $goals->values()->all(),
         ];
     }
 
@@ -81,6 +78,7 @@ class GoalService
 
             $goal->payments()->create([
                 'amount' => $amount,
+                'currency_code' => $goal->currency_code ?: User::defaultCurrency()['code'],
                 'method' => $method,
             ]);
 
@@ -186,11 +184,15 @@ class GoalService
 
     private function serializeGoal(Goal $goal): array
     {
+        $currency = $this->currencies->currencyForStoredCode($goal->currency_code);
+
         return [
             'id' => $goal->id,
             'title' => $goal->title,
             'amount_total' => (float) $goal->amount_total,
             'amount_saved' => (float) $goal->amount_saved,
+            'currency_code' => $currency['code'],
+            'currency' => $this->currencies->serialize($currency),
             'deadline' => optional($goal->deadline)->toDateString(),
             'priority' => $goal->priority,
             'is_primary' => $goal->is_primary,

@@ -157,6 +157,7 @@
                                             @if($user->language)
                                                 <div class="text-muted small">Язык: {{ strtoupper($user->language) }}</div>
                                             @endif
+                                            <div class="text-muted small">Валюта: {{ $user->preferredCurrencyCode() }}</div>
                                         </td>
                                         <td>
                                             <div>{{ $user->email ?: 'Нет email' }}</div>

@@ -9,6 +9,11 @@ use Illuminate\Support\Arr;
 
 class TransactionService
 {
+    public function __construct(
+        protected CurrencyService $currencies,
+    ) {
+    }
+
     public function import(array $params, ?User $user = null): array
     {
         if (!$user) {
@@ -19,9 +24,12 @@ class TransactionService
         $created = 0;
 
         foreach ($items as $item) {
+            $currency = $this->currencies->resolveSelection($item, $user);
+
             Transaction::create([
                 'user_id' => $user->id,
                 'amount' => Arr::get($item, 'amount'),
+                'currency_code' => $currency['code'],
                 'category' => Arr::get($item, 'category'),
                 'description' => Arr::get($item, 'description'),
                 'datetime' => Arr::get($item, 'datetime', now()),
@@ -53,29 +61,63 @@ class TransactionService
             ->orderBy('datetime')
             ->get();
 
-        $sumIncome = 0;
-        $sumExpense = 0;
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $summaryByCurrency = [];
 
-        $items = $transactions->map(function (Transaction $t) use (&$sumIncome, &$sumExpense) {
+        $items = $transactions->map(function (Transaction $t) use (&$summaryByCurrency) {
+            $currency = $this->currencies->currencyForStoredCode($t->currency_code);
+            $code = $currency['code'];
+
+            if (!isset($summaryByCurrency[$code])) {
+                $summaryByCurrency[$code] = [
+                    'currency' => $this->currencies->serialize($currency),
+                    'income' => 0.0,
+                    'expense' => 0.0,
+                ];
+            }
+
             if ($t->amount > 0) {
-                $sumIncome += $t->amount;
+                $summaryByCurrency[$code]['income'] += (float) $t->amount;
             } else {
-                $sumExpense += abs($t->amount);
+                $summaryByCurrency[$code]['expense'] += abs((float) $t->amount);
             }
 
             return [
                 'id' => $t->id,
                 'amount' => (float) $t->amount,
+                'currency_code' => $currency['code'],
+                'currency' => $this->currencies->serialize($currency),
                 'category' => $t->category,
                 'description' => $t->description,
                 'datetime' => $t->datetime?->toDateTimeString(),
             ];
         })->all();
 
+        $summary = collect($summaryByCurrency)
+            ->map(function (array $group) {
+                $group['balance'] = round((float) $group['income'] - (float) $group['expense'], 2);
+                $group['income'] = round((float) $group['income'], 2);
+                $group['expense'] = round((float) $group['expense'], 2);
+
+                return $group;
+            })
+            ->values()
+            ->all();
+
+        $selectedTotals = collect($summary)->firstWhere('currency.code', $selectedCurrency['code']) ?? [
+            'currency' => $this->currencies->serialize($selectedCurrency),
+            'income' => 0.0,
+            'expense' => 0.0,
+            'balance' => 0.0,
+        ];
+
         return [
             'date' => $day->toDateString(),
-            'income' => (float) $sumIncome,
-            'expense' => (float) $sumExpense,
+            'currency' => $selectedTotals['currency'],
+            'income' => (float) $selectedTotals['income'],
+            'expense' => (float) $selectedTotals['expense'],
+            'balance' => (float) $selectedTotals['balance'],
+            'summary_by_currency' => $summary,
             'items' => $items,
         ];
     }

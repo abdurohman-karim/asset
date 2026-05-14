@@ -9,6 +9,7 @@ class GoalPayment extends Model
     protected $fillable = [
         'goal_id',
         'amount',
+        'currency_code',
         'method',
     ];
 

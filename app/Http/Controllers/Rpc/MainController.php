@@ -9,8 +9,10 @@ use App\Services\SmartSaveService;
 use App\Services\BudgetService;
 use App\Services\TransactionService;
 use App\Services\AIService;
+use App\Services\CurrencyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class MainController extends Controller
@@ -23,6 +25,7 @@ class MainController extends Controller
         BudgetService $budgetService,
         TransactionService $transactionService,
         AIService $aiService,
+        CurrencyService $currencyService,
     ) {
         $jsonRpcVersion = $request->input('jsonrpc');
         $id = $request->input('id');
@@ -79,6 +82,25 @@ class MainController extends Controller
                 'transaction.import' => $transactionService->import($params, $user),
                 'transaction.getDaily' => $transactionService->getDaily($params, $user),
 
+                'currency.list' => [
+                    'success' => true,
+                    'data' => array_map(
+                        fn (array $currency) => $currencyService->serialize($currency),
+                        $currencyService->listActive()
+                    ),
+                ],
+                'currency.get' => [
+                    'success' => true,
+                    'data' => $currencyService->serialize($currencyService->preferredCurrency($user)),
+                ],
+                'currency.set' => [
+                    'success' => true,
+                    'message' => 'Currency updated successfully',
+                    'data' => $currencyService->serialize(
+                        $currencyService->setPreferredCurrency($user, $currencyService->resolveSelection($params, $user))
+                    ),
+                ],
+
                 'ai.insight.daily' => $aiService->daily($params, $user),
                 'ai.goal.analysis' => $aiService->goalAnalysis($params, $user),
                 'ai.transaction.analysis' => $aiService->transactionAnalysis($params, $user),
@@ -90,6 +112,10 @@ class MainController extends Controller
 
                 default => $this->error(-32601, 'Method not found', $id)
             };
+
+            if ($result instanceof JsonResponse) {
+                return $result;
+            }
 
             if (str_starts_with($method, 'ai.')) {
                 Log::info('AI RPC response', [

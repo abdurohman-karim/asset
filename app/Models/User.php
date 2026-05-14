@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Services\CurrencyService;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -62,6 +63,26 @@ class User extends Authenticatable
         $this->save();
 
         return $settings['theme'];
+    }
+
+    public function preferredCurrency(): array
+    {
+        return app(CurrencyService::class)->preferredCurrency($this);
+    }
+
+    public function preferredCurrencyCode(): string
+    {
+        return $this->preferredCurrency()['code'];
+    }
+
+    public function setPreferredCurrency(array|string $currency): array
+    {
+        return app(CurrencyService::class)->setPreferredCurrency($this, $currency);
+    }
+
+    public static function defaultCurrency(): array
+    {
+        return app(CurrencyService::class)->defaultCurrency();
     }
 
     public function roles(): BelongsToMany

@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Goal;
 use App\Models\User;
 use App\Services\AIService;
+use App\Services\CurrencyService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -28,7 +29,7 @@ class AIServiceTest extends TestCase
             'status' => 'active',
         ]);
 
-        $service = new class extends AIService {
+        $service = new class(app(CurrencyService::class)) extends AIService {
             public int $calls = 0;
 
             protected function callLLM(string $systemPrompt, string $userPrompt, string $language): array
@@ -64,7 +65,7 @@ class AIServiceTest extends TestCase
             ['name' => 'groq', 'limit' => 1],
         ]);
 
-        $service = new class extends AIService {
+        $service = new class(app(CurrencyService::class)) extends AIService {
             public function increment(string $key): void
             {
                 $this->incrementProviderCounter($key);

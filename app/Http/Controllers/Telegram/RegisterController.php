@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Telegram;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\CurrencyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -79,7 +80,7 @@ class RegisterController extends Controller
         ]);
     }
 
-    public function status(Request $request)
+    public function status(Request $request, CurrencyService $currencies)
     {
         $validator = Validator::make($request->all(), [
             'tg_user_id' => $this->telegramIdRules(),
@@ -96,6 +97,9 @@ class RegisterController extends Controller
             'status' => 'ok',
             'registered' => (bool) ($user && $user->phone),
             'language' => $user?->language,
+            'currency' => $user
+                ? $currencies->serialize($currencies->preferredCurrency($user))
+                : $currencies->serialize($currencies->defaultCurrency()),
         ]);
     }
 

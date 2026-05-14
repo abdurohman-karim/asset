@@ -10,6 +10,11 @@ use Illuminate\Support\Arr;
 
 class BudgetService
 {
+    public function __construct(
+        protected CurrencyService $currencies,
+    ) {
+    }
+
     public function getMonth(array $params, ?User $user = null): array
     {
         if (!$user) {
@@ -17,15 +22,18 @@ class BudgetService
         }
 
         $month = Arr::get($params, 'month') ?: Carbon::today()->format('Y-m');
+        $currency = $this->currencies->resolveSelection($params, $user);
 
         $budget = Budget::where('user_id', $user->id)
             ->where('month', $month)
+            ->where('currency_code', $currency['code'])
             ->first();
 
         if (!$budget) {
             return [
                 'exists' => false,
                 'month'  => $month,
+                'currency' => $this->currencies->serialize($currency),
             ];
         }
 
@@ -39,17 +47,20 @@ class BudgetService
         }
 
         $month = Arr::get($params, 'month') ?: Carbon::today()->format('Y-m');
+        $currency = $this->currencies->resolveSelection($params, $user);
 
         [$year, $monthNum] = explode('-', $month);
         $start = Carbon::createFromDate($year, $monthNum, 1)->startOfMonth();
         $end   = $start->copy()->endOfMonth();
 
         $income = Transaction::where('user_id', $user->id)
+            ->where('currency_code', $currency['code'])
             ->whereBetween('datetime', [$start, $end])
             ->where('amount', '>', 0)
             ->sum('amount');
 
         $expenses = Transaction::where('user_id', $user->id)
+            ->where('currency_code', $currency['code'])
             ->whereBetween('datetime', [$start, $end])
             ->where('amount', '<', 0)
             ->sum('amount');
@@ -66,8 +77,9 @@ class BudgetService
         $recommendedDailyLimit = $daysInPeriod > 0 ? round($expenses / $daysInPeriod, 2) : 0;
 
         $budget = Budget::updateOrCreate(
-            ['user_id' => $user->id, 'month' => $month],
+            ['user_id' => $user->id, 'month' => $month, 'currency_code' => $currency['code']],
             [
+                'currency_code'          => $currency['code'],
                 'income'                 => $income,
                 'expenses'               => $expenses,
                 'recommended_daily_limit'=> $recommendedDailyLimit,
@@ -82,6 +94,10 @@ class BudgetService
         return [
             'id' => $budget->id,
             'month' => $budget->month,
+            'currency_code' => $budget->currency_code ?: User::defaultCurrency()['code'],
+            'currency' => $this->currencies->serialize(
+                $this->currencies->currencyForStoredCode($budget->currency_code)
+            ),
             'income' => (float) $budget->income,
             'expenses' => (float) $budget->expenses,
             'recommended_daily_limit'=> (float) $budget->recommended_daily_limit,

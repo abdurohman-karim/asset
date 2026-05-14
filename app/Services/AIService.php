@@ -16,6 +16,11 @@ class AIService
 {
     protected int $providerCounterTtlSeconds = 3600;
 
+    public function __construct(
+        protected CurrencyService $currencies,
+    ) {
+    }
+
     public function daily(array $params, ?User $user = null): array
     {
         if (!$user) {
@@ -29,14 +34,13 @@ class AIService
             ->orderBy('datetime')
             ->get();
 
-        $goal = $this->getActiveGoal($user);
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $goal = $this->getActiveGoal($user, $selectedCurrency['code']);
 
-        $todayTransactions = $transactions->map(fn ($t) => [
-            'amount' => (float) $t->amount,
-            'category' => $t->category,
-            'description' => $t->description,
-            'datetime' => $t->datetime?->toDateTimeString(),
-        ])->values()->all();
+        $todayTransactions = $transactions
+            ->map(fn (Transaction $transaction) => $this->serializeTransactionForAi($transaction))
+            ->values()
+            ->all();
 
         $context = $this->buildContextPackage($user, $goal, [
             'analysis_start' => $today,
@@ -100,14 +104,12 @@ class AIService
             ->orderByDesc('datetime')
             ->limit(12)
             ->get()
-            ->map(fn ($t) => [
-                'amount' => (float) $t->amount,
-                'category' => $t->category,
-                'description' => $t->description,
-                'datetime' => $t->datetime?->toDateTimeString(),
-            ])->values()->all();
+            ->map(fn (Transaction $transaction) => $this->serializeTransactionForAi($transaction))
+            ->values()
+            ->all();
 
-        $goal = $this->getActiveGoal($user);
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $goal = $this->getActiveGoal($user, $selectedCurrency['code']);
 
         $context = $this->buildContextPackage($user, $goal, [
             'analysis_start' => $from,
@@ -134,7 +136,8 @@ class AIService
         $today = Carbon::today();
         $from = $today->copy()->subDays(6);
 
-        $goal = $this->getActiveGoal($user);
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $goal = $this->getActiveGoal($user, $selectedCurrency['code']);
 
         $context = $this->buildContextPackage($user, $goal, [
             'analysis_start' => $from,
@@ -160,7 +163,8 @@ class AIService
         $today = Carbon::today();
         $from = $today->copy()->subDays(30);
 
-        $goal = $this->getActiveGoal($user);
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $goal = $this->getActiveGoal($user, $selectedCurrency['code']);
 
         $context = $this->buildContextPackage($user, $goal, [
             'analysis_start' => $from,
@@ -183,7 +187,8 @@ class AIService
             throw new \RuntimeException('User required');
         }
 
-        $goal = $this->getActiveGoal($user);
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $goal = $this->getActiveGoal($user, $selectedCurrency['code']);
         $context = $this->buildContextPackage($user, $goal);
 
         $monthlyIncome = (float) ($context['month']['income'] ?? 0);
@@ -218,7 +223,8 @@ class AIService
             throw new \RuntimeException('User required');
         }
 
-        $goal = $this->getActiveGoal($user);
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $goal = $this->getActiveGoal($user, $selectedCurrency['code']);
         $context = $this->buildContextPackage($user, $goal);
 
         $monthlyIncome = (float) ($context['month']['income'] ?? 0);
@@ -258,7 +264,8 @@ class AIService
             throw new \RuntimeException('User required');
         }
 
-        $goal = $this->getActiveGoal($user);
+        $selectedCurrency = $this->currencies->preferredCurrency($user);
+        $goal = $this->getActiveGoal($user, $selectedCurrency['code']);
         $context = $this->buildContextPackage($user, $goal);
 
         $language = $this->resolveLanguage($user);
@@ -271,10 +278,11 @@ class AIService
         return $this->callLLM($this->buildSystemPrompt($language), $prompt, $language);
     }
 
-    protected function getActiveGoal(User $user): ?Goal
+    protected function getActiveGoal(User $user, ?string $currencyCode = null): ?Goal
     {
         return Goal::where('user_id', $user->id)
             ->where('status', 'active')
+            ->when($currencyCode, fn ($query) => $query->where('currency_code', $currencyCode))
             ->orderByDesc('is_primary')
             ->orderBy('priority')
             ->first();
@@ -305,7 +313,8 @@ class AIService
         return "You are a premium fintech financial advisor.\n"
             . "Tone: calm, confident, concise, high-trust. No fluff, no slang.\n"
             . "You MUST answer strictly in the user language: {$languageName} (code: {$language}).\n"
-            . "Use only UZS currency.\n"
+            . "Use the exact currency labels provided in context.\n"
+            . "Never add, compare, or convert amounts across different currencies unless the context already groups them within the same currency.\n"
             . "Return ONLY valid JSON. No markdown, no extra text.\n"
             . "In 'summary', use the provided section_titles exactly as headings, in order."
             . " Each section must be 1–3 short sentences.\n"
@@ -323,14 +332,18 @@ class AIService
         $todayEnd = $today->copy()->endOfDay();
 
         $language = $this->resolveLanguage($user);
+        $analysisCurrency = $goal
+            ? $this->currencies->currencyForStoredCode($goal->currency_code)
+            : $this->currencies->preferredCurrency($user);
+        $analysisCurrencyCode = $analysisCurrency['code'];
 
-        [$monthlyIncome, $monthlyExpense] = $this->getTotals($user, $monthStart, $todayEnd);
+        [$monthlyIncome, $monthlyExpense] = $this->getTotals($user, $monthStart, $todayEnd, $analysisCurrencyCode);
 
         $lastMonthStart = $today->copy()->subMonthNoOverflow()->startOfMonth();
         $lastMonthEnd = $lastMonthStart->copy()->endOfMonth();
-        [$lastMonthIncome, $lastMonthExpense] = $this->getTotals($user, $lastMonthStart, $lastMonthEnd);
+        [$lastMonthIncome, $lastMonthExpense] = $this->getTotals($user, $lastMonthStart, $lastMonthEnd, $analysisCurrencyCode);
 
-        $trackingDays = $this->getTrackingDays($user, $monthStart, $todayEnd);
+        $trackingDays = $this->getTrackingDays($user, $monthStart, $todayEnd, $analysisCurrencyCode);
         $avgDailyExpense = $trackingDays > 0 ? round($monthlyExpense / $trackingDays, 2) : 0.0;
         $daysLeft = max(0, $today->diffInDays($monthEnd));
 
@@ -339,10 +352,10 @@ class AIService
             $expenseDeltaPct = round((($monthlyExpense - $lastMonthExpense) / $lastMonthExpense) * 100, 2);
         }
 
-        $topCategories = $this->getTopCategories($user, $monthStart, $todayEnd, 3);
+        $topCategories = $this->getTopCategories($user, $monthStart, $todayEnd, 3, $analysisCurrencyCode);
 
         $recentStart = $today->copy()->subDays(14)->startOfDay();
-        $recentDaily = $this->getDailyExpenseSeries($user, $recentStart, $todayEnd);
+        $recentDaily = $this->getDailyExpenseSeries($user, $recentStart, $todayEnd, $analysisCurrencyCode);
         $recentSpikes = $this->getRecentSpikes($recentDaily, $avgDailyExpense);
 
         $context = [
@@ -350,12 +363,19 @@ class AIService
                 'id' => $user->id,
                 'name' => $user->name,
                 'language' => $language,
+                'selected_currency' => $this->currencies->serialize($this->currencies->preferredCurrency($user)),
+            ],
+            'analysis_currency' => $this->currencies->serialize($analysisCurrency),
+            'multi_currency_overview' => [
+                'month_totals' => $this->groupTotalsByCurrency($user, $monthStart, $todayEnd),
+                'last_month_totals' => $this->groupTotalsByCurrency($user, $lastMonthStart, $lastMonthEnd),
             ],
             'month' => [
                 'start' => $monthStart->toDateString(),
                 'end' => $monthEnd->toDateString(),
                 'days_left' => $daysLeft,
                 'tracking_days' => $trackingDays,
+                'currency' => $this->currencies->serialize($analysisCurrency),
                 'income' => (float) $monthlyIncome,
                 'expense' => (float) $monthlyExpense,
                 'avg_daily_expense' => (float) $avgDailyExpense,
@@ -363,6 +383,7 @@ class AIService
             'last_month' => [
                 'start' => $lastMonthStart->toDateString(),
                 'end' => $lastMonthEnd->toDateString(),
+                'currency' => $this->currencies->serialize($analysisCurrency),
                 'income' => (float) $lastMonthIncome,
                 'expense' => (float) $lastMonthExpense,
                 'expense_delta_pct' => $expenseDeltaPct,
@@ -377,6 +398,9 @@ class AIService
                 'title' => $goal->title,
                 'amount_total' => (float) $goal->amount_total,
                 'amount_saved' => (float) $goal->amount_saved,
+                'currency' => $this->currencies->serialize(
+                    $this->currencies->currencyForStoredCode($goal->currency_code)
+                ),
                 'progress_pct' => (float) $goal->progress,
                 'deadline' => optional($goal->deadline)->toDateString(),
                 'is_primary' => (bool) $goal->is_primary,
@@ -388,19 +412,21 @@ class AIService
         if (!empty($options['analysis_start']) && !empty($options['analysis_end'])) {
             $analysisStart = $options['analysis_start']->copy()->startOfDay();
             $analysisEnd = $options['analysis_end']->copy()->endOfDay();
-            [$analysisIncome, $analysisExpense] = $this->getTotals($user, $analysisStart, $analysisEnd);
-            $analysisDailyExpense = $this->getDailyExpenseSeries($user, $analysisStart, $analysisEnd);
-            $analysisTopCategories = $this->getTopCategories($user, $analysisStart, $analysisEnd, 3);
+            [$analysisIncome, $analysisExpense] = $this->getTotals($user, $analysisStart, $analysisEnd, $analysisCurrencyCode);
+            $analysisDailyExpense = $this->getDailyExpenseSeries($user, $analysisStart, $analysisEnd, $analysisCurrencyCode);
+            $analysisTopCategories = $this->getTopCategories($user, $analysisStart, $analysisEnd, 3, $analysisCurrencyCode);
             $analysisDays = $analysisStart->copy()->startOfDay()->diffInDays($analysisEnd->copy()->startOfDay()) + 1;
 
             $context['analysis'] = [
                 'start' => $analysisStart->toDateString(),
                 'end' => $analysisEnd->toDateString(),
                 'days' => $analysisDays,
+                'currency' => $this->currencies->serialize($analysisCurrency),
                 'income' => (float) $analysisIncome,
                 'expense' => (float) $analysisExpense,
                 'daily_expense' => $analysisDailyExpense,
                 'top_categories' => $analysisTopCategories,
+                'totals_by_currency' => $this->groupTotalsByCurrency($user, $analysisStart, $analysisEnd),
             ];
         }
 
@@ -493,14 +519,16 @@ class AIService
         };
     }
 
-    protected function getTotals(User $user, Carbon $start, Carbon $end): array
+    protected function getTotals(User $user, Carbon $start, Carbon $end, ?string $currencyCode = null): array
     {
         $income = Transaction::where('user_id', $user->id)
+            ->when($currencyCode, fn ($query) => $query->where('currency_code', $currencyCode))
             ->whereBetween('datetime', [$start, $end])
             ->where('amount', '>', 0)
             ->sum('amount');
 
         $expense = Transaction::where('user_id', $user->id)
+            ->when($currencyCode, fn ($query) => $query->where('currency_code', $currencyCode))
             ->whereBetween('datetime', [$start, $end])
             ->where('amount', '<', 0)
             ->sum('amount');
@@ -511,10 +539,11 @@ class AIService
         ];
     }
 
-    protected function getTopCategories(User $user, Carbon $start, Carbon $end, int $limit = 3): array
+    protected function getTopCategories(User $user, Carbon $start, Carbon $end, int $limit = 3, ?string $currencyCode = null): array
     {
         $rows = Transaction::selectRaw('category, SUM(ABS(amount)) as total')
             ->where('user_id', $user->id)
+            ->when($currencyCode, fn ($query) => $query->where('currency_code', $currencyCode))
             ->whereBetween('datetime', [$start, $end])
             ->where('amount', '<', 0)
             ->groupBy('category')
@@ -528,10 +557,11 @@ class AIService
         ])->values()->all();
     }
 
-    protected function getDailyExpenseSeries(User $user, Carbon $start, Carbon $end): array
+    protected function getDailyExpenseSeries(User $user, Carbon $start, Carbon $end, ?string $currencyCode = null): array
     {
         $rows = Transaction::selectRaw('DATE(datetime) as date, SUM(ABS(amount)) as total')
             ->where('user_id', $user->id)
+            ->when($currencyCode, fn ($query) => $query->where('currency_code', $currencyCode))
             ->whereBetween('datetime', [$start, $end])
             ->where('amount', '<', 0)
             ->groupBy('date')
@@ -544,14 +574,48 @@ class AIService
         ])->values()->all();
     }
 
-    protected function getTrackingDays(User $user, Carbon $start, Carbon $end): int
+    protected function getTrackingDays(User $user, Carbon $start, Carbon $end, ?string $currencyCode = null): int
     {
         return (int) Transaction::where('user_id', $user->id)
+            ->when($currencyCode, fn ($query) => $query->where('currency_code', $currencyCode))
             ->whereBetween('datetime', [$start, $end])
             ->selectRaw('DATE(datetime) as day')
             ->distinct()
             ->get()
             ->count();
+    }
+
+    protected function groupTotalsByCurrency(User $user, Carbon $start, Carbon $end): array
+    {
+        $rows = Transaction::selectRaw('currency_code, SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income, SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expense')
+            ->where('user_id', $user->id)
+            ->whereBetween('datetime', [$start, $end])
+            ->groupBy('currency_code')
+            ->get();
+
+        return $rows->map(function ($row) {
+            $currency = $this->currencies->currencyForStoredCode($row->currency_code);
+
+            return [
+                'currency' => $this->currencies->serialize($currency),
+                'income' => (float) $row->income,
+                'expense' => (float) $row->expense,
+            ];
+        })->values()->all();
+    }
+
+    protected function serializeTransactionForAi(Transaction $transaction): array
+    {
+        $currency = $this->currencies->currencyForStoredCode($transaction->currency_code);
+
+        return [
+            'amount' => (float) $transaction->amount,
+            'amount_formatted' => $this->currencies->formatAmount($transaction->amount, $currency),
+            'currency' => $this->currencies->serialize($currency),
+            'category' => $transaction->category,
+            'description' => $transaction->description,
+            'datetime' => $transaction->datetime?->toDateTimeString(),
+        ];
     }
 
     protected function getRecentSpikes(array $dailySeries, float $avgDailyExpense, int $limit = 3): array

@@ -101,6 +101,10 @@
                                         <td>{{ $theme ?: 'Не указана' }}</td>
                                     </tr>
                                     <tr>
+                                        <th>Валюта</th>
+                                        <td>{{ $user->preferredCurrencyCode() }}</td>
+                                    </tr>
+                                    <tr>
                                         <th>Админ</th>
                                         <td>{{ $user->is_admin ? 'Да' : 'Нет' }}</td>
                                     </tr>
