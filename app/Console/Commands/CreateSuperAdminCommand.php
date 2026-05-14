@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
 
 class CreateSuperAdminCommand extends Command
 {
-    protected $signature = 'admin:create-super
+    protected $signature = 'admin:create
         {--email=admin@example.com : Super Admin email}
         {--name=Super Admin : Super Admin name}';
 
