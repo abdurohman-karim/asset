@@ -1,10 +1,38 @@
 <?php
 
+use Illuminate\Support\Facades\App as AppFacade;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+$supportedWelcomeLocales = ['ru', 'en', 'uz'];
+
+Route::get('/', function () use ($supportedWelcomeLocales) {
+    $locale = session('welcome_locale', request()->cookie('welcome_locale', 'ru'));
+
+    if (! in_array($locale, $supportedWelcomeLocales, true)) {
+        $locale = 'ru';
+    }
+
+    AppFacade::setLocale($locale);
+    AppFacade::setFallbackLocale('ru');
+    session(['welcome_locale' => $locale]);
+
+    return view('welcome', [
+        'welcomeLocale' => $locale,
+        'welcomeLocales' => $supportedWelcomeLocales,
+    ]);
+})->name('welcome');
+
+Route::get('/lang/{locale}', function (string $locale) use ($supportedWelcomeLocales) {
+    if (! in_array($locale, $supportedWelcomeLocales, true)) {
+        $locale = 'ru';
+    }
+
+    session(['welcome_locale' => $locale]);
+
+    return redirect()
+        ->route('welcome')
+        ->cookie('welcome_locale', $locale, 60 * 24 * 365);
+})->name('welcome.language');
 
 Auth::routes();
 Route::group(['middleware'=>"auth"],function (){

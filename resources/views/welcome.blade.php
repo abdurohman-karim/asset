@@ -3,17 +3,16 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Lunex | Premium Finance Control</title>
+    <title>{{ __('welcome.meta.title') }}</title>
     @php
         $telegramBotUrl = 'https://t.me/lunexai_bot';
         $loginUrl = Route::has('login') ? route('login') : null;
-        $registerUrl = Route::has('register') ? route('register') : null;
         $dashboardUrl = Route::has('home') ? route('home') : (Route::has('dashboard') ? route('dashboard') : null);
         $isAuthenticated = auth()->check();
         $primaryUrl = $isAuthenticated ? $dashboardUrl : $telegramBotUrl;
-        $primaryLabel = $isAuthenticated ? 'Open dashboard' : 'Get started';
+        $primaryLabel = $isAuthenticated ? __('welcome.cta.open_dashboard') : __('welcome.cta.get_started');
         $secondaryUrl = $isAuthenticated ? $loginUrl : $telegramBotUrl;
-        $secondaryLabel = $isAuthenticated ? 'Account access' : ($registerUrl ? 'Create account' : 'Open dashboard');
+        $secondaryLabel = $isAuthenticated ? __('welcome.cta.account_access') : __('welcome.cta.create_account');
     @endphp
     <style>
         :root {
@@ -124,6 +123,12 @@
             font-weight: 700;
         }
 
+        .topbar-end {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+        }
+
         .nav-mark::before,
         .nav-tag::before {
             content: "";
@@ -132,6 +137,52 @@
             border-radius: 50%;
             background: var(--accent);
             box-shadow: 0 0 0 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .locale-switcher {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .locale-label {
+            padding-left: 8px;
+            color: var(--muted);
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .locale-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 42px;
+            min-height: 36px;
+            padding: 0 12px;
+            border-radius: var(--radius-sm);
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .locale-link:hover {
+            transform: translateY(-1px);
+            background: rgba(0, 0, 0, 0.04);
+            color: var(--text);
+        }
+
+        .locale-link.is-active {
+            background: #0a0a0a;
+            color: #ffffff;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.14);
         }
 
         .hero {
@@ -599,28 +650,53 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+
+            .topbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .topbar-end {
+                width: 100%;
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .locale-switcher {
+                flex-wrap: wrap;
+            }
         }
     </style>
 </head>
 <body>
     <div class="page-shell">
         <header class="topbar">
-            <a href="{{ url('/') }}" class="nav-mark" aria-label="Lunex home">
+            <a href="{{ route('welcome') }}" class="nav-mark" aria-label="{{ __('welcome.meta.home_aria') }}">
                 <strong>#lunex</strong>
             </a>
-            <div class="nav-tag">
-                <strong>[ grow ]</strong>
+            <div class="topbar-end">
+                <div class="nav-tag">
+                    <strong>{{ __('welcome.nav.grow') }}</strong>
+                </div>
+                <nav class="locale-switcher" aria-label="{{ __('welcome.switcher.aria') }}">
+                    <span class="locale-label">{{ __('welcome.switcher.label') }}</span>
+                    @foreach ($welcomeLocales as $localeOption)
+                        <a
+                            href="{{ route('welcome.language', ['locale' => $localeOption]) }}"
+                            class="locale-link{{ $welcomeLocale === $localeOption ? ' is-active' : '' }}"
+                        >
+                            {{ __('welcome.switcher.locales.' . $localeOption) }}
+                        </a>
+                    @endforeach
+                </nav>
             </div>
         </header>
 
         <main class="hero">
             <section class="hero-copy" aria-labelledby="hero-title">
-                <span class="eyebrow">Fintech Operating Layer</span>
-                <h1 id="hero-title">Take control of your money.</h1>
-                <p>
-                    Build the future you deserve. Track expenses, grow savings, and turn financial goals into
-                    reality with a cleaner, sharper way to manage what matters.
-                </p>
+                <span class="eyebrow">{{ __('welcome.hero.eyebrow') }}</span>
+                <h1 id="hero-title">{{ __('welcome.hero.title') }}</h1>
+                <p>{{ __('welcome.hero.description') }}</p>
 
                 <div class="cta-row">
                     @if ($primaryUrl)
@@ -642,29 +718,29 @@
 
                 @if ($loginUrl || $dashboardUrl)
                     <a href="{{ $dashboardUrl ?? $loginUrl }}" class="button-ghost">
-                        Precision tools for spending, saving, and planning
+                        {{ __('welcome.hero.ghost_link') }}
                     </a>
                 @endif
 
-                <div class="hero-meta" aria-label="Lunex feature summary">
+                <div class="hero-meta" aria-label="{{ __('welcome.meta.features_aria') }}">
                     <article class="meta-card">
-                        <strong>Expenses</strong>
-                        <span>See cash flow clearly with elegant daily and monthly tracking.</span>
+                        <strong>{{ __('welcome.features.expenses.title') }}</strong>
+                        <span>{{ __('welcome.features.expenses.description') }}</span>
                     </article>
                     <article class="meta-card">
-                        <strong>Savings</strong>
-                        <span>Automate discipline with smart momentum toward larger balances.</span>
+                        <strong>{{ __('welcome.features.savings.title') }}</strong>
+                        <span>{{ __('welcome.features.savings.description') }}</span>
                     </article>
                     <article class="meta-card">
-                        <strong>Clarity</strong>
-                        <span>Reduce noise and focus on the next best financial decision.</span>
+                        <strong>{{ __('welcome.features.clarity.title') }}</strong>
+                        <span>{{ __('welcome.features.clarity.description') }}</span>
                     </article>
                 </div>
             </section>
 
-            <aside class="hero-visual" aria-label="Lunex financial overview">
+            <aside class="hero-visual" aria-label="{{ __('welcome.meta.visual_aria') }}">
                 <div class="visual-head">
-                    <span class="visual-title">Lunex Growth Console</span>
+                    <span class="visual-title">{{ __('welcome.visual.title') }}</span>
                     <div class="signal" aria-hidden="true">
                         <span></span>
                         <span></span>
@@ -673,59 +749,59 @@
                 </div>
 
                 <div class="brand-orb">
-                    <img src="{{ asset('assets/logo/lunex.svg') }}" alt="Lunex logo">
+                    <img src="{{ asset('assets/logo/lunex.svg') }}" alt="{{ __('welcome.visual.logo_alt') }}">
                 </div>
 
                 <div class="panel-grid">
                     <article class="stat-card">
-                        <small>Expenses</small>
-                        <strong>$1,240</strong>
-                        <p>Spending organized into a tighter, easier monthly view.</p>
+                        <small>{{ __('welcome.visual.expenses.label') }}</small>
+                        <strong>{{ __('welcome.visual.expenses.value') }}</strong>
+                        <p>{{ __('welcome.visual.expenses.description') }}</p>
                     </article>
                     <article class="stat-card">
-                        <small>Savings</small>
-                        <strong>+18.4%</strong>
-                        <p>Steady growth with protected reserves and clearer habits.</p>
+                        <small>{{ __('welcome.visual.savings.label') }}</small>
+                        <strong>{{ __('welcome.visual.savings.value') }}</strong>
+                        <p>{{ __('welcome.visual.savings.description') }}</p>
                     </article>
                     <article class="stat-card">
-                        <small>Goals</small>
-                        <strong>3 active</strong>
-                        <p>Home fund, travel balance, and emergency runway all on track.</p>
+                        <small>{{ __('welcome.visual.goals.label') }}</small>
+                        <strong>{{ __('welcome.visual.goals.value') }}</strong>
+                        <p>{{ __('welcome.visual.goals.description') }}</p>
                     </article>
                     <article class="stat-card">
-                        <small>AI Insights</small>
-                        <strong>2 suggestions</strong>
-                        <p>Trim repeat spending and route extra cash into higher-priority goals.</p>
+                        <small>{{ __('welcome.visual.ai.label') }}</small>
+                        <strong>{{ __('welcome.visual.ai.value') }}</strong>
+                        <p>{{ __('welcome.visual.ai.description') }}</p>
                     </article>
 
                     <section class="tracker" aria-labelledby="tracker-title">
                         <div class="tracker-head">
                             <div>
-                                <span class="mini-label" id="tracker-title">Financial runway</span>
-                                <div class="tracker-value">76%</div>
+                                <span class="mini-label" id="tracker-title">{{ __('welcome.visual.tracker.title') }}</span>
+                                <div class="tracker-value">{{ __('welcome.visual.tracker.value') }}</div>
                             </div>
-                            <span class="mini-label">Projected growth</span>
+                            <span class="mini-label">{{ __('welcome.visual.tracker.subtitle') }}</span>
                         </div>
 
                         <div class="tracker-bars">
                             <div class="bar">
                                 <div class="bar-meta">
-                                    <span>Emergency reserve</span>
-                                    <span>82%</span>
+                                    <span>{{ __('welcome.visual.tracker.reserve.label') }}</span>
+                                    <span>{{ __('welcome.visual.tracker.reserve.value') }}</span>
                                 </div>
                                 <div class="bar-line"><span style="width: 82%;"></span></div>
                             </div>
                             <div class="bar">
                                 <div class="bar-meta">
-                                    <span>Investment flow</span>
-                                    <span>67%</span>
+                                    <span>{{ __('welcome.visual.tracker.investment.label') }}</span>
+                                    <span>{{ __('welcome.visual.tracker.investment.value') }}</span>
                                 </div>
                                 <div class="bar-line"><span style="width: 67%;"></span></div>
                             </div>
                             <div class="bar">
                                 <div class="bar-meta">
-                                    <span>Goal completion</span>
-                                    <span>79%</span>
+                                    <span>{{ __('welcome.visual.tracker.completion.label') }}</span>
+                                    <span>{{ __('welcome.visual.tracker.completion.value') }}</span>
                                 </div>
                                 <div class="bar-line"><span style="width: 79%;"></span></div>
                             </div>
@@ -738,22 +814,19 @@
         <section class="bottom-brand" aria-labelledby="brand-future">
             <div class="bottom-grid">
                 <div class="bottom-copy">
-                    <strong id="brand-future">Designed for deliberate growth</strong>
-                    <p>
-                        Lunex brings a premium, minimalist layer to everyday money management. The experience is
-                        built to feel calm, precise, and ambitious without adding friction.
-                    </p>
+                    <strong id="brand-future">{{ __('welcome.bottom.title') }}</strong>
+                    <p>{{ __('welcome.bottom.description') }}</p>
                 </div>
 
                 <div class="bottom-logo-wrap">
-                    <img src="{{ asset('assets/logo/lunex.svg') }}" alt="Lunex brand mark">
+                    <img src="{{ asset('assets/logo/lunex.svg') }}" alt="{{ __('welcome.bottom.logo_alt') }}">
                 </div>
             </div>
         </section>
 
         <footer class="page-footer">
-            <span><strong>Lunex</strong> premium financial control.</span>
-            <span>Laravel v{{ Illuminate\Foundation\Application::VERSION }} / PHP v{{ PHP_VERSION }}</span>
+            <span><strong>Lunex</strong> {{ __('welcome.footer.tagline') }}</span>
+            <span>{{ __('welcome.footer.laravel') }} v{{ Illuminate\Foundation\Application::VERSION }} / {{ __('welcome.footer.php') }} v{{ PHP_VERSION }}</span>
         </footer>
     </div>
 </body>
