@@ -18,10 +18,11 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->timestamp('password_expires_at')->nullable();
             $table->string('password');
-            $table->string('phone')->nullable();
+            $table->string('phone')->nullable()->unique();
             $table->boolean('is_admin')->default(false);
             $table->jsonb('settings')->nullable();
             $table->string('tg_user_id')->unique()->nullable();
+            $table->string('language', 5)->default('ru');
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();

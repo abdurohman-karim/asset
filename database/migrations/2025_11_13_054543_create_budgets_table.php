@@ -13,12 +13,14 @@ return new class extends Migration
     {
         Schema::create('budgets', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id')->unique();
-            $table->string('month', 7)->unique(); // YYYY-MM
+            $table->unsignedBigInteger('user_id');
+            $table->string('month', 7); // YYYY-MM
+            $table->string('currency_code', 16)->index();
             $table->decimal('income', 18, 2)->default(0);
             $table->decimal('expenses', 18, 2)->default(0);
             $table->decimal('recommended_daily_limit', 18, 2)->default(0);
             $table->jsonb('categories')->nullable();
+            $table->unique(['user_id', 'month', 'currency_code'], 'budgets_user_id_month_currency_code_unique');
             $table->timestamps();
         });
     }

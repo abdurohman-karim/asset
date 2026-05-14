@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('goal_id')->index();
             $table->decimal('amount', 18, 2);
+            $table->string('currency_code', 16)->nullable()->index();
             $table->string('method')->default('manual');
             // manual | smart_save | auto
             $table->timestamps();

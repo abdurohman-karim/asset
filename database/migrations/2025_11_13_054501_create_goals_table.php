@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('title');
             $table->decimal('amount_total', 18, 2);
             $table->decimal('amount_saved', 18, 2)->default(0);
+            $table->string('currency_code', 16)->nullable()->index();
             $table->date('deadline')->nullable();
             $table->tinyInteger('priority')->default(1);
             $table->string('status')->default('active'); // active | completed | cancelled

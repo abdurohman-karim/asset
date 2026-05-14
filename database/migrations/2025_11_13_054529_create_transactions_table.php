@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id')->index();
             $table->decimal('amount', 18, 2); // (+ income, - expense)
+            $table->string('currency_code', 16)->nullable()->index();
             $table->string('category')->nullable()->index();
             $table->string('description')->nullable();
             $table->jsonb('raw')->nullable();
